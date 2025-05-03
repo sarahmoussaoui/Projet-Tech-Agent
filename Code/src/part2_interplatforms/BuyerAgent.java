@@ -5,6 +5,9 @@ import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+
+import java.util.Arrays;
+
 import jade.core.AID;
 import jade.core.Location;
 import jade.core.ContainerID;
@@ -20,26 +23,36 @@ public class BuyerAgent extends Agent {
                 sellerAgents[i] = new AID((String) args[i], AID.ISLOCALNAME);
             }
 
-            addBehaviour(new OneShotBehaviour() {
+            addBehaviour(new CyclicBehaviour() {
+                private int attemptCount = 0;
+                private final int MAX_ATTEMPTS = 3;
+
                 public void action() {
-                    System.out.println("BuyerAgent is trying to move to the SellerPlatform...");
-                    ContainerID destination = new ContainerID();
-                    destination.setName("Main-Container-seller");
-                    destination.setAddress("localhost");
-                    destination.setPort("8888");
+                    if (attemptCount >= MAX_ATTEMPTS) {
+                        System.out.println("Max migration attempts reached. Giving up.");
+                        removeBehaviour(this);
+                        return;
+                    }
+
+                    attemptCount++;
+                    System.out.println("Migration attempt #" + attemptCount);
+
+                    ContainerID destination = new ContainerID("Main-Container-seller", null);
 
                     try {
-                        doMove(destination);  // Try to move the agent
-                        System.out.println("Migration initiated successfully.");
-                        Location loc = here();
-                        System.out.println("BuyerAgent current location: " + loc.getName());
+                        System.out.println("Trying to move to: " + destination.getName());
+                        doMove(destination);
+
+                        // If we get here, migration likely failed
+                        System.out.println("Move attempt completed but agent didn't migrate");
+                        block(3000); // Wait 3 seconds before retrying
+
                     } catch (Exception e) {
                         System.out.println("Migration failed: " + e.getMessage());
-                        e.printStackTrace();
+                        block(3000); // Wait 3 seconds before retrying
                     }
                 }
             });
-
 
             addBehaviour(new CyclicBehaviour() {
                 public void action() {
@@ -103,12 +116,10 @@ public class BuyerAgent extends Agent {
                 order.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                 order.setContent("buy");
                 send(order);
-                System.out.println("Accepted offer from: " + bestOffer.getSender().getLocalName() + " with total cost: " + bestPrice);
+                System.out.println("Accepted offer from: " + bestOffer.getSender().getLocalName() + " with total cost: "
+                        + bestPrice);
             }
         }
     }
 
-
-    
 }
-
